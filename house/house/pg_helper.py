@@ -15,17 +15,6 @@ import psycopg2.extras
 
 from datetime import datetime,timedelta
 
-class MyCursor(psycopg2.extensions.cursor):
-    def execute(self, sql, args=None):
-        logger = logging.getLogger(name=__name__)
-
-        try:
-            psycopg2.extensions.cursor.execute(self, sql, args)
-        except Exception as e:
-            logger.error("%s: %s" % (e.__class__.__name__, e))
-            raise
-
-
 class Pg_helper(object):
 
     def __init__(self):
@@ -35,6 +24,7 @@ class Pg_helper(object):
         self.host = "127.0.0.1"
         self.port = "5432"
         self.logger = logging.getLogger(name=__name__)
+
 
     def writeDb(self,sql,data=None):
         conn = psycopg2.connect(database=self.databse, user=self.user,
@@ -70,22 +60,6 @@ class Pg_helper(object):
             conn.close()
         return data
 
-    # def execute(self,sql,params=None):
-    #     conn = psycopg2.connect(database=self.databse, user=self.user,
-    #                             password=self.password,host=self.host,port=self.port)
-    #     cursor = conn.cursor()
-    #     try:
-    #         cursor.execute(sql,params)
-    #         data = cursor.fetchall()
-    #         conn.commit()
-    #     except Exception as e:
-    #         conn.rollback()
-    #         self.logging.error("%s: %s" % (e.__class__.__name__, e))
-    #     finally:
-    #         cursor.close()
-    #         conn.close()
-    #     return data
-
     def isnumber(self,str):
         try:
             float(str)
@@ -112,12 +86,16 @@ class Pg_helper(object):
                      "http://esf.wuhan.fang.com/chushou/3_167680394.htm",)
         self.writeDb(sql)
 
-    def get_or_insert_qu(self, city_name, qu_name):
+    def get_city(self,city_name):
         sql = "select id from house_city where name='{0}';".format(city_name)
         rows = self.readDb(sql)
         if len(rows) == 0:
             raise Exception('城市名称不存在 - {0}'.format(city_name))
         city_id = rows[0]['id']
+        return city_id
+
+    def get_or_insert_qu(self, city_name, qu_name):
+        city_id = self.get_city(city_name)
 
         sql = "select id from house_qu where city_id={0} and name='{1}';".\
             format(city_id, qu_name)
@@ -185,6 +163,37 @@ class Pg_helper(object):
             rows = self.readDb(sql)
         return rows[0]['id']
 
+    def get_chaoxiang(self,chaoxiang_name):
+        sql = "select id from house_chaoxiang where name='{0}';".format(chaoxiang_name)
+        rows = self.readDb(sql)
+        if len(rows) == 0:
+            raise Exception('朝向错误 - {0}'.format(chaoxiang_name))
+        return rows[0]['id']
+
+    def get_louceng(self,louceng,zhonglouceng):
+        sql = "select id from house_louceng where lou='{0}' and max>={1} and min<{1};".\
+            format(louceng,zhonglouceng)
+        rows = self.readDb(sql)
+        if len(rows) == 0:
+            raise Exception('楼层错误 - {0}／{1}'.format(louceng,zhonglouceng))
+        return rows[0]['id']
+
+    def get_chanquan(self,chanquan_name):
+        sql = "select id from house_chanquan where name='{0}年';".format(chanquan_name)
+        rows = self.readDb(sql)
+        if len(rows) == 0:
+            raise Exception('产权错误 - {0}'.format(chanquan_name))
+        return rows[0]['id']
+
+    def get_jianzhu(self,jianzhu_name):
+        sql = "select id from house_jianzhu where name='{0}';".format(jianzhu_name)
+        rows = self.readDb(sql)
+        if len(rows) == 0:
+            raise Exception('建筑类型错误 - {0}'.format(jianzhu_name))
+        return rows[0]['id']
+
+
+
     def create_fangwu_data(self,item):
         result = {}
         chaoxiang_choices = {'东': 1,'南': 2,'西': 3,'北': 4,'东南': 5,
@@ -224,106 +233,58 @@ class Pg_helper(object):
         pian_name = item['pian']
         xiaoqu_name = item['xiaoqu']
 
-        huxing_name = def_huxing_name
+        result['city_id'] = self.get_city(city_name)
+        result['qu_id'] = self.get_or_insert_qu(city_name,qu_name)
+        result['pian_id'] = self.get_or_insert_pian(city_name,qu_name,pian_name)
+        result['xiaoqu_id'] = self.get_or_insert_xiaoqu(city_name, qu_name, pian_name, xiaoqu_name)
+
         p_huxing = r'\d+室\d+厅\d+卫'
         if(re.match(p_huxing,item['huxing'])):
-            huxing_name = item['huxing']
-        xuexiao_name = item['xuexiao']
-        result['xiaoqu'] = self.get_or_insert_xiaoqu(city_name, qu_name, pian_name, xiaoqu_name)
-        result['huxing'] = self.get_or_insert_huxing(huxing_name)
+            result['huxing_id'] = self.get_or_insert_huxing(item['huxing'])
+        else:
+            raise Exception('无效的户型 - {0}'.format(item['huxing']))
 
-        result['mianji'] = def_mianji
         if(item['mianji'].find('平')>0 and self.isnumber(item['mianji'].split('平')[0])):
             result['mianji'] = float(item['mianji'].split('平')[0])
         else:
-            self.logger.info('无效的面积 - {0}'.format(item['mianji']))
+            raise Exception('无效的面积 - {0}'.format(item['mianji']))
 
-        result['danjia'] = def_danjia
         if(item['danjia'].find('元')>0 and self.isnumber(item['danjia'].split('元')[0])):
             result['danjia'] = float(item['danjia'].split('元')[0])
         else:
-            self.logger.info('无效的单价 - {0}'.format(item['danjia']))
+            raise Exception('无效的单价 - {0}'.format(item['danjia']))
 
-        result['chaoxiang'] = chaoxiang_choices[def_chaoxiang]
-        if(item['chaoxiang'] in chaoxiang_choices):
-            result['chaoxiang'] = chaoxiang_choices[item['chaoxiang']]
+        result['chaoxiang_id'] = self.get_chaoxiang(item['chaoxiang'])
+        zonglouceng = item['zonglouceng'].split('共')[1].split('层')[0]
+        result['louceng_id'] = self.get_louceng(item['louceng'],zonglouceng)
 
-        result['louceng'] = louceng_choices[def_louceng]
-        if(item['louceng'] in louceng_choices):
-            result['louceng'] = louceng_choices[item['louceng']]
-
-        result['zonglouceng'] = def_zonglouceng
-        p_zonglouceng = r'.*共\d+层.*'
-        if(re.match(p_zonglouceng,item['zonglouceng'])):
-            result['zonglouceng'] = item['zonglouceng'].split('共')[1].split('层')[0]
-
-        result['zhuangxiu'] = zhuangxiu_choices[def_zhuangxiu]
-        if(item['zhuangxiu'] in zhuangxiu_choices):
-            result['zhuangxiu'] = zhuangxiu_choices[item['zhuangxiu']]
-
-        result['xuexiao'] = self.get_or_insert_xuexiao(city_name,xuexiao_name)
-
-        result['niandai'] = def_niandai
+        # result['niandai'] = def_niandai
         if(item['niandai'].find('年')>0 and item['niandai'].split('年')[0].isnumeric()):
             result['niandai'] = int(item['niandai'].split('年')[0])
+        else:
+            raise Exception('无效的年代 - {0}'.format(item['niandai']))
 
-        result['dianti'] = dianti_choices[def_dianti]
-        if(item['dianti'] in dianti_choices):
-            result['dianti'] = dianti_choices[item['dianti']]
+        if(item['nianxian'] != '' and item['nianxian'][:2].isnumeric()):
+            nianxian = int(item['nianxian'][:2])
+            result['chanquan_id'] = self.get_chanquan(nianxian)
+        else:
+            raise Exception('无效的产权年限 - {0}'.format(item['nianxian']))
 
-        result['chanquan'] = chanquan_choices[def_chanquan]
-        if(item['chanquan'] in chanquan_choices):
-            result['chanquan'] = chanquan_choices[item['chanquan']]
-
-        result['guapai'] = def_guapai
         p_guapai = r'20\d{2}-\d{2}-\d{2}'
         if(re.match(p_guapai,item['guapai'])):
             result['guapai'] = item['guapai']
+        else:
+            raise Exception('无效的挂牌日期 - {0}'.format(item['guapai']))
 
-        result['gengxin'] = def_gengxin
+        # result['gengxin'] = def_gengxin
         if(item['gengxin'].find('天')>0):
             tian = int(item['gengxin'].split('天')[0])
             td = timedelta(days=tian)
             result['gengxin'] = (datetime.now() - td).strftime('%Y-%m-%d')
+        else:
+            result['gengxin'] = datetime.now().strftime('%Y-%m-%d')
 
-        result['leixing'] = leixing_choices[def_leixing]
-        if(item['leixing'] in leixing_choices):
-            result['leixing'] = leixing_choices[item['leixing']]
-
-        result['wuyefei'] = def_wuyefei
-        if(item['wuyefei'].find('元')>0 and item['wuyefei'].split('元')[0].isnumeric()):
-            result['wuyefei'] = float(item['wuyefei'].split('元')[0])
-
-        result['jianzhu'] = jianzhu_choices[def_jianzhu]
-
-        if(item['jianzhu'] in jianzhu_choices):
-            result['jianzhu'] = jianzhu_choices[item['jianzhu']]
-        elif(item['jianzhu'].find(',')>0 and item['jianzhu'].split(',')[0] in jianzhu_choices):
-            result['jianzhu'] = jianzhu_choices[item['jianzhu'].split(',')[0]]
-
-        result['nianxian'] = def_nianxian
-        if(item['nianxian'] != '' and item['nianxian'][:2].isnumeric()):
-            result['nianxian'] = int(item['nianxian'][:2])
-
-        result['lvhua'] = def_lvhua
-        if(item['lvhua'].find('%')>0):
-            result['lvhua'] = float(item['lvhua'].split('%')[0])
-
-        result['rongji'] = def_rongji
-        if(item['rongji'].isnumeric()):
-            result['rongji'] = float(item['rongji'])
-
-        result['fenliu'] = fenliu_choices[def_fenliu]
-        if(item['fenliu'] in fenliu_choices):
-            result['fenliu'] = fenliu_choices[item['fenliu']]
-
-        result['loudong'] = def_loudong
-        if(item['loudong'].isnumeric()):
-            result['loudong'] = int(item['loudong'])
-
-        result['hushu'] = def_hushu
-        if(item['hushu'].isnumeric()):
-            result['hushu'] = int(item['hushu'])
+        result['jianzhu_id'] = self.get_jianzhu(item['jianzhu'])
 
         result['zhiwen'] = item['zhiwen']
         return result
@@ -337,20 +298,16 @@ class Pg_helper(object):
                 return
             item_fangwu = self.create_fangwu_data(item)
 
-            str_keys = ("xiaoqu_id,huxing_id,mianji,danjia,chaoxiang,louceng,zonglouceng,zhuangxiu,"
-                       "xuexiao_id,niandai,dianti,chanquan,guapai,gengxin,leixing,wuyefei,"
-                       "jianzhu,nianxian,lvhua,rongji,fenliu,loudong,hushu,zhiwen")
+            str_keys = ("city_id,qu_id,pian_id,xiaoqu_id,huxing_id,mianji,danjia,chaoxiang_id,"
+                        "louceng_id,niandai,chanquan_id,guapai,gengxin,jianzhu_id,zhiwen")
             str_values = ("{0},{1},{2},{3},{4},{5},{6},{7},"
-                         "{8},{9},{10},{11},'{12}','{13}',{14},{15},"
-                         "{16},{17},{18},{19},{20},{21},{22},'{23}'"). \
-                             format(item_fangwu['xiaoqu'],item_fangwu['huxing'],item_fangwu['mianji'],
-                                    item_fangwu['danjia'],item_fangwu['chaoxiang'],item_fangwu['louceng'],
-                                    item_fangwu['zonglouceng'],item_fangwu['zhuangxiu'],item_fangwu['xuexiao'],
-                                    item_fangwu['niandai'],item_fangwu['dianti'],item_fangwu['chanquan'],
-                                    item_fangwu['guapai'],item_fangwu['gengxin'],item_fangwu['leixing'],
-                                    item_fangwu['wuyefei'],item_fangwu['jianzhu'],item_fangwu['nianxian'],
-                                    item_fangwu['lvhua'],item_fangwu['rongji'],item_fangwu['fenliu'],
-                                    item_fangwu['loudong'],item_fangwu['hushu'],item_fangwu['zhiwen'])
+                         "{8},{9},{10},'{11}','{12}',{13},'{14}'"). \
+                             format(item_fangwu['city_id'],item_fangwu['qu_id'],item_fangwu['pian_id'],
+                                    item_fangwu['xiaoqu_id'],item_fangwu['huxing_id'],item_fangwu['mianji'],
+                                    item_fangwu['danjia'],item_fangwu['chaoxiang_id'],
+                                    item_fangwu['louceng_id'],item_fangwu['niandai'],item_fangwu['chanquan_id'],
+                                    item_fangwu['guapai'],item_fangwu['gengxin'],item_fangwu['jianzhu_id'],
+                                    item_fangwu['zhiwen'])
             sql = 'insert into house_fangwu ({0}) values ({1});'.format(str_keys,str_values)
             # self.cur.execute(sql)
             self.writeDb(sql)
@@ -363,6 +320,7 @@ class Pg_helper(object):
             create_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             item['create_date'] = create_date
             item['zhiwen'] = zhiwen
+            item['status'] = '0'
             sql = "select * from house_caiji where zhiwen='{0}';".format(zhiwen)
             rows = self.readDb(sql)
             if len(rows) > 0:
@@ -389,6 +347,68 @@ class Pg_helper(object):
               + item['louceng'] + item['zonglouceng'] + item['zhuangxiu']
         zhiwen = hashlib.md5(str.encode('utf-8')).hexdigest()
         return zhiwen
+
+    def set_xiaoqu_danjia(self):
+        self.logger.debug('更新小区单价...')
+        sql = ("update house_xiaoqu as hx set danjia = (select round(sum(danjia)/count(*)) "
+               "from house_fangwu where xiaoqu_id = hx.id)")
+        self.writeDb(sql)
+
+        self.logger.debug('更新片单价...')
+        sql = ("update house_pian as hp set danjia = (select round(sum(danjia)/count(*)) "
+               "from house_fangwu where pian_id = hp.id)")
+        self.writeDb(sql)
+
+        self.logger.debug('更新区单价...')
+        sql = ("update house_qu as hq set danjia = (select round(sum(danjia)/count(*)) "
+               "from house_fangwu where qu_id = hq.id)")
+        self.writeDb(sql)
+
+        self.logger.debug('更新城市单价...')
+        sql = ("update house_city as hc set danjia = (select round(sum(danjia)/count(*)) "
+               "from house_fangwu where city_id = hc.id)")
+        self.writeDb(sql)
+
+        self.logger.debug('更新产权单价...')
+        sql = ("update house_chanquan as h set danjia = (select round(sum(danjia)/count(*)) "
+               "from house_fangwu where chanquan_id = h.id)")
+        self.writeDb(sql)
+
+        self.logger.debug('更新城市产权单价...')
+        sql = ("")
+        self.writeDb(sql)
+
+        self.logger.debug('更新户型单价...')
+        sql = ("update house_huxing as h set danjia = (select round(sum(danjia)/count(*)) "
+               "from house_fangwu where huxing_id = h.id)")
+        self.writeDb(sql)
+
+        self.logger.debug('更新城市户型单价...')
+        sql = ("")
+        self.writeDb(sql)
+
+        self.logger.debug('更新朝向单价...')
+        sql = ("update house_chaoxiang as h set danjia = (select round(sum(danjia)/count(*)) "
+               "from house_fangwu where chaoxiang_id = h.id)")
+        self.writeDb(sql)
+
+        self.logger.debug('更新城市朝向单价...')
+        sql = ("")
+        self.writeDb(sql)
+
+        self.logger.debug('更新楼层单价...')
+        sql = ("update house_louceng as h set danjia = (select round(sum(danjia)/count(*)) "
+               "from house_fangwu where louceng_id = h.id)")
+        self.writeDb(sql)
+
+        self.logger.debug('更新城市楼层单价...')
+        sql = ("")
+        self.writeDb(sql)
+
+
+
+
+
 
     def hello(self):
         print ('hello,this is pg_helper')

@@ -15,7 +15,7 @@ class FangSpider(scrapy.Spider):
     def start_requests(self):
         # for url in self.start_urls:
         #     yield Request(url=url, callback=self.parse_houseList)
-        for i in range(200):
+        for i in range(100):
             url = self.base_url.format(i)
             yield Request(url=url, callback=self.parse_houseList)
 
@@ -50,9 +50,14 @@ class FangSpider(scrapy.Spider):
         niandai = response.xpath("//span[text()='建筑年代']/parent::*/span[@class='rcont']/text()").extract_first()
         dianti = response.xpath("//span[text()='有无电梯']/parent::*/span[@class='rcont']/text()").extract_first()
         chanquan = response.xpath("//span[text()='产权性质']/parent::*/span[@class='rcont']/text()").extract_first()
+        zhuzhaileibie = response.xpath("//span[text()='住宅类别']/parent::*/span[@class='rcont']/text()").extract_first()
+        jianzhujiegou = response.xpath("//span[text()='建筑结构']/parent::*/span[@class='rcont']/text()").extract_first()
+        jianzhuleibie = response.xpath("//span[text()='建筑类别']/parent::*/span[@class='rcont']/text()").extract_first()
+        jianzhuxingshi = response.xpath("//span[text()='建筑形式']/parent::*/span[@class='rcont']/text()").extract_first()
         guapai = response.xpath("//span[text()='挂牌时间']/parent::*/span[@class='rcont']/text()").extract_first()\
             .strip('(')
         gengxin = response.xpath("//i[@id='Time']/text()").extract_first()
+
         junjia = response.xpath("//span[text()='参考均价']/parent::*/span[@class='rcont']/i/text()").extract_first()
         leixing = response.xpath("//span[text()='物业类型']/parent::*/span[@class='rcont']/text()").extract_first()
         wuyefei = response.xpath("//span[text()='物业费用']/parent::*/span[@class='rcont']/text()").extract_first()
@@ -80,6 +85,10 @@ class FangSpider(scrapy.Spider):
             'niandai': self.str_strip(niandai),
             'dianti': self.str_strip(dianti),
             'chanquan': self.str_strip(chanquan),
+            'zhuzhaileibie': self.str_strip(zhuzhaileibie),
+            'jianzhujiegou': self.str_strip(jianzhujiegou),
+            'jianzhuleibie': self.str_strip(jianzhuleibie),
+            'jianzhuxingshi': self.str_strip(jianzhuxingshi),
             'guapai': self.str_strip(guapai),
             'gengxin': self.str_strip(gengxin),
             'junjia': self.str_strip(junjia),
