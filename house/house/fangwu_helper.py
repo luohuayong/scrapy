@@ -58,6 +58,14 @@ class Fangwu_helper(object):
             result[item['name']] = item['id']
         return result
 
+    def get_laiyuan_dict(self):
+        result = {}
+        sql = "select * from house_laiyuan;"
+        rows = self.pg_helper.readDb(sql)
+        for item in rows:
+            result[item['name']] = item['id']
+        return result
+
     def __init__(self):
         self.logger = logging.getLogger(name=__name__)
 
@@ -67,6 +75,7 @@ class Fangwu_helper(object):
         self.louceng_list = self.get_louceng_list()
         self.chanquan_dict = self.get_chanquan_dict()
         self.jianzhu_dict = self.get_jianzhu_dict()
+        self.laiyuan_dict = self.get_laiyuan_dict()
 
     def get_or_insert_qu(self, city_name, qu_name):
         city_id = self.get_city_id(city_name)
@@ -154,6 +163,12 @@ class Fangwu_helper(object):
         else:
             raise Exception('建筑类型错误 - {0}'.format(jianzhu_name))
 
+    def get_laiyuan_id(self,laiyuan_name):
+        if laiyuan_name in self.laiyuan_dict:
+            return self.laiyuan_dict[laiyuan_name]
+        else:
+            raise Exception('来源错误 - {0}'.format(laiyuan_name))
+
     def create_fangwu_data(self,item):
         result = {}
         city_name = item['chengshi']
@@ -224,6 +239,7 @@ class Fangwu_helper(object):
             raise Exception('建筑类型错误 - {0}'.format(item['jianzhu']))
 
         result['zhiwen'] = item['zhiwen']
+        result['laiyuan_id'] = self.get_laiyuan_id(item['laiyuan'])
         return result
 
     def insert_from_caiji(self):
@@ -238,9 +254,9 @@ class Fangwu_helper(object):
                     item_fangwu = self.create_fangwu_data(item)
                     sql = ("insert into house_fangwu (city_id,qu_id,pian_id,xiaoqu_id,huxing_id,"
                            "mianji,danjia,chaoxiang_id,louceng_id,niandai,chanquan_id,guapai,gengxin,"
-                           "jianzhu_id,zhiwen) values (%(city_id)s,%(qu_id)s,%(pian_id)s,%(xiaoqu_id)s,"
+                           "jianzhu_id,zhiwen,laiyuan_id) values (%(city_id)s,%(qu_id)s,%(pian_id)s,%(xiaoqu_id)s,"
                            "%(huxing_id)s,%(mianji)s,%(danjia)s,%(chaoxiang_id)s,%(louceng_id)s,"
-                           "%(niandai)s,%(chanquan_id)s,%(guapai)s,%(gengxin)s,%(jianzhu_id)s,%(zhiwen)s);")
+                           "%(niandai)s,%(chanquan_id)s,%(guapai)s,%(gengxin)s,%(jianzhu_id)s,%(zhiwen)s),%(laiyuan_id)s;")
                     self.pg_helper.writeDb(sql,item_fangwu)
 
                 sql = "update house_caiji set status='1' where id={0}".format(item['id'])

@@ -12,6 +12,7 @@ import logging
 import hashlib
 
 from house.pg_helper import Pg_helper
+from house.caiji_helper import Caiji_helper
 
 
 class HousePipeline(object):
@@ -19,8 +20,11 @@ class HousePipeline(object):
 
     def process_item(self, item, spider):
         if spider.name == "fang":
-            pg_helper = Pg_helper()
-            pg_helper.insert_caiji(item)
+            caiji_helper = Caiji_helper()
+            caiji_helper.insert_caiji(item)
             # pg_helper.insert_from_caiji(item)
+        elif spider.name == "lianjia":
+            caiji_helper = Caiji_helper()
+            caiji_helper.insert_caiji(item)
         return item
 

@@ -44,6 +44,8 @@ class FangSpider(scrapy.Spider):
         zhuangxiu = response.xpath("//div[@class='tt']/text()").extract()[5]
         xiaoqu = response.xpath("//a[@id='agantesfxq_C03_05']/text()").extract_first()
         qu = response.xpath("//a[@id='agantesfxq_C03_07']/text()").extract_first()
+        if(qu[len(qu)-1])!='区':
+            qu = qu + '区'
         pian = response.xpath("//a[@id='agantesfxq_C03_08']/text()").extract_first()
         xuexiao = response.xpath("//a[@id='agantesfxq_C03_09']/text()").extract_first()
 
