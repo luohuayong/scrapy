@@ -6,7 +6,7 @@
 代码说明：
 """
 
-from pg_helper import Pg_helper
+from house.pg_helper import Pg_helper
 import logging
 
 class Sys_helper(object):

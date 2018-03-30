@@ -13,7 +13,8 @@ import hashlib
 
 from house.pg_helper import Pg_helper
 from house.caiji_helper import Caiji_helper
-
+from house.fang_helper import Fang_helper
+from house.lianjia_helper import Lianjia_helper
 
 class HousePipeline(object):
 
@@ -26,5 +27,13 @@ class HousePipeline(object):
         elif spider.name == "lianjia":
             caiji_helper = Caiji_helper()
             caiji_helper.insert_caiji(item)
+        elif spider.name == "fang_xiaoqu":
+            fang_helper = Fang_helper()
+            xiaoqu_id = fang_helper.insert_xiaoqu(item)
+            # if(xiaoqu_id):
+            #     bieming_id = fang_helper.insert_xiaoqu_bieming(item)
+        elif spider.name == 'lianjia_xiaoqu':
+            lianjia_helper = Lianjia_helper()
+            lianjia_helper.insert_xiaoqu(item)
         return item
 

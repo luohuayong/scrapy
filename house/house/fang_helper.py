@@ -5,8 +5,8 @@
 """
 代码说明：
 """
-from .pg_helper import Pg_helper
-from .data_helper import Data_helper
+from house.pg_helper import Pg_helper
+from house.data_helper import Data_helper
 import logging
 import hashlib
 from datetime import datetime,timedelta
@@ -44,6 +44,11 @@ class Fang_helper(object):
 
     def create_fangwu_data(self,item):
         result = {}
+        laiyuan_name = item['laiyuan']
+        laiyuan_id = self.data_helper.get_laiyuan_id(laiyuan_name)
+        if(not laiyuan_id):
+            raise Exception('来源错误 - {0}'.format(laiyuan_name))
+        result['laiyuan_id'] = laiyuan_id
 
         city_name = item['chengshi']
         city_id = self.data_helper.get_city_id(city_name)
@@ -64,9 +69,9 @@ class Fang_helper(object):
         result['pian_id'] = pian_id
 
         xiaoqu_name = item['xiaoqu']
-        xiaoqu_id = self.data_helper.get_xiaoqu_id(pian_id,xiaoqu_name)
+        xiaoqu_id = self.data_helper.get_xiaoqu_id(qu_id,xiaoqu_name)
         if(not xiaoqu_id):
-            xiaoqu_id = self.data_helper.insert_xiaoqu(pian_id,xiaoqu_name)
+            xiaoqu_id = self.data_helper.insert_xiaoqu(city_id,qu_id,pian_id,xiaoqu_name,laiyuan_id)
         result['xiaoqu_id'] = xiaoqu_id
 
         huxing_name = item['huxing']
@@ -138,6 +143,7 @@ class Fang_helper(object):
                 jianzhu_id = self.data_helper.get_jianzhu_id(jianzhu_name)
                 if(not jianzhu_id):
                     raise Exception('建筑类型错误 - {0}'.format(item['jianzhu']))
+        result['jianzhu_id'] = jianzhu_id
 
         # if(item['jianzhu'] in self.jianzhu_dict):
         #     result['jianzhu_id'] = self.jianzhu_dict[item['jianzhu']]
@@ -150,14 +156,46 @@ class Fang_helper(object):
 
         result['zhiwen'] = item['zhiwen']
 
-        laiyuan_name = item['laiyuan']
-        laiyuan_id = self.data_helper.get_laiyuan_id(laiyuan_name)
-        if(not laiyuan_id):
-            raise Exception('来源错误 - {0}'.format(laiyuan_name))
-        result['laiyuan_id'] = laiyuan_id
+
         return result
 
-    def insert_from_caiji(self):
+    def insert_xiaoqu(self,item):
+        laiyuan_id = self.data_helper.get_laiyuan_id('fang.com')
+
+        city_name = item['city_name']
+        city_id = self.data_helper.get_city_id(city_name)
+        if(not city_id):
+            raise Exception('城市错误 - {0}'.format(city_name))
+
+        qu_name = item['qu_name']
+        qu_id = self.data_helper.get_qu_id(city_id,qu_name)
+        if(not qu_id):
+            qu_id = self.data_helper.insert_qu(city_id,qu_name)
+
+        pian_name = item['pian_name']
+        pian_id = self.data_helper.get_pian_id(qu_id,pian_name)
+        if(not pian_id):
+            pian_id = self.data_helper.insert_pian(qu_id,pian_name)
+
+        xiaoqu_name = item['xiaoqu_name']
+        xiaoqu_id = self.data_helper.get_xiaoqu_id(qu_id,xiaoqu_name)
+        if(not xiaoqu_id):
+            xiaoqu_id = self.data_helper.insert_xiaoqu(city_id,qu_id,pian_id,xiaoqu_name,laiyuan_id)
+        return xiaoqu_id
+
+
+    def insert_xiaoqu_bieming(self,item):
+        city_name = item['city_name']
+        city_id = self.data_helper.get_city_id(city_name)
+        if(not city_id):
+            raise Exception('城市错误 - {0}'.format(city_name))
+        bieming = item['xiaoqu_name']
+        bieming_id = self.data_helper.insert_xiaoqu_bieming(city_name,city_id,bieming)
+        return  bieming_id
+
+
+
+    def insert_fangwu(self):
         sql = "select * from house_caiji where status='0'"
         rows = self.pg_helper.readDb(sql)
         for item in rows:

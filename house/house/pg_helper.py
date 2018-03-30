@@ -36,6 +36,7 @@ class Pg_helper(object):
         except Exception as e:
             conn.rollback()
             self.logger.error("%s: %s" % (e.__class__.__name__, e))
+            self.logger.error("sql=%s" % sql)
             return False
         finally:
             cursor.close()
@@ -54,6 +55,7 @@ class Pg_helper(object):
         except Exception as e:
             conn.rollback()
             self.logger.error("%s: %s" % (e.__class__.__name__, e))
+            self.logger.error("sql=%s" % sql)
             return False
         finally:
             cursor.close()

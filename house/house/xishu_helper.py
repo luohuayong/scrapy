@@ -5,7 +5,7 @@
 """
 代码说明：
 """
-from pg_helper import Pg_helper
+from house.pg_helper import Pg_helper
 import psycopg2
 import logging
 import hashlib

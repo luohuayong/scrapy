@@ -5,7 +5,7 @@
 """
 代码说明：
 """
-from pg_helper import Pg_helper
+from house.pg_helper import Pg_helper
 import logging
 
 from datetime import datetime,timedelta
@@ -138,10 +138,16 @@ class Data_helper(object):
         sql = "select id from house_qu where city_id={0} and name='{1}';". \
             format(city_id, qu_name)
         rows = self.pg_helper.readDb(sql)
-        if len(rows) == 0:
-            return None
-        else:
+        if len(rows) == 1:
             return rows[0]['id']
+
+        sql = ("select id from house_qu where city_id={0}"\
+              " and (position(name in '{1}')>0 or position('{1}' in name)>0);").\
+            format(city_id,qu_name)
+        rows = self.pg_helper.readDb(sql)
+        if len(rows) == 1:
+            return rows[0]['id']
+        return None
 
     def insert_qu(self, city_id, qu_name):
         sql = "insert into house_qu (city_id,name) values ({0},'{1}') returning id;". \
@@ -153,25 +159,40 @@ class Data_helper(object):
         sql = "select id from house_pian where qu_id={0} and name='{1}';". \
             format(qu_id, pian_name)
         rows = self.pg_helper.readDb(sql)
-        if len(rows) == 0:
-            return None
-        else:
+        if len(rows) == 1:
             return rows[0]['id']
 
-    def insert_pian(self, qu_id, pian_name):
-        sql = "insert into house_pian (qu_id,name) values ({0},'{1}') returning id;". \
+        sql = ("select id from house_pian where qu_id={0}"
+               " and position('{1}' in name)>0;"). \
             format(qu_id, pian_name)
+        rows = self.pg_helper.readDb(sql)
+        if len(rows) == 1:
+            return rows[0]['id']
+        else:
+            return None
+
+    def insert_pian(self, qu_id, pian_name, laiyuan_id):
+        sql = "insert into house_pian (qu_id,name,laiyuan_id) values ({0},'{1}',{2}) returning id;". \
+            format(qu_id, pian_name, laiyuan_id)
         rows = self.pg_helper.readDb(sql)
         return rows[0]['id']
 
-    def get_xiaoqu_id(self, pian_id, xiaoqu_name):
-        sql = "select id from house_xiaoqu where pian_id={0} and name='{1}';". \
-            format(pian_id, xiaoqu_name)
+    def get_xiaoqu_id(self, qu_id, xiaoqu_name):
+        sql = "select id from house_xiaoqu where qu_id={0} and name='{1}';". \
+            format(qu_id, xiaoqu_name)
         rows = self.pg_helper.readDb(sql)
-        if len(rows) == 0:
-            return None
-        else:
+        if len(rows) == 1:
             return rows[0]['id']
+
+        sql = ("select id from house_xiaoqu where qu_id={0}"
+               " and position(name in '{1}')>0;"). \
+            format(qu_id, xiaoqu_name)
+        rows = self.pg_helper.readDb(sql)
+        if len(rows) == 1:
+            return rows[0]['id']
+        else:
+            return None
+
 
     def get_xiaoqu_by_city(self,city_name,xiaoqu_name):
         sql = ("select xiaoqu.id as xiaoqu_id,xiaoqu.name as xiaoqu_name,"
@@ -191,11 +212,43 @@ class Data_helper(object):
             return rows[0]
             # rows[0]['city_id'],rows[0]['qu_id'],rows[0]['pian_id'],rows[0]['xiaoqu_id']
 
-
-    def insert_xiaoqu(self,pian_id, xiaoqu_name):
-        sql = "insert into house_xiaoqu (pian_id,name) values ({0},'{1}') returning id;". \
-            format(pian_id, xiaoqu_name)
+    def insert_xiaoqu(self,city_id,qu_id,pian_id, xiaoqu_name,laiyuan_id):
+        if (xiaoqu_name==None or xiaoqu_name == ''):
+            raise Exception('小区名错误 - {0}'.format(xiaoqu_name))
+        sql = ("insert into house_xiaoqu (city_id,qu_id,pian_id,name,laiyuan_id) "
+               "values ({0},{1},{2},'{3}',{4}) returning id;"). \
+            format(city_id, qu_id, pian_id, xiaoqu_name, laiyuan_id)
         rows = self.pg_helper.readDb(sql)
+        return rows[0]['id']
+
+    def insert_xiaoqu_bieming(self, city_name, city_id, bieming):
+        sql = "select * from house_xiaoqu_bieming where city_name='{0}' and bieming='{1}';".\
+            format(city_name,bieming)
+        rows=self.pg_helper.readDb(sql)
+        if(len(rows)>0):
+            return rows[0]['id']
+
+        sql = "select * from house_xiaoqu where city_id={0} and name='{1}';".\
+            format(city_id,bieming)
+        rows=self.pg_helper.readDb(sql)
+        if(len(rows)!=1):
+            sql = "select * from house_xiaoqu where city_id={0} and position(name in '{1}')>0;". \
+                format(city_id,bieming)
+            rows=self.pg_helper.readDb(sql)
+        if(len(rows)!=1):
+            sql = "select * from house_xiaoqu where city_id={0} and position('{1}' in name)>0;". \
+                format(city_id,bieming)
+            rows=self.pg_helper.readDb(sql)
+        if(len(rows)==1):
+            sql = ("insert into house_xiaoqu_bieming(city_name,bieming,xiaoqu_name,xiaoqu_id)"
+                   " values('{0}','{1}','{2}',{3});"). \
+                format(city_name, bieming, rows[0]['name'], rows[0]['id'])
+            rows=self.pg_helper.writeDb(sql)
+        else:
+            sql = ("insert into house_xiaoqu_bieming(city_name,bieming)"
+                   " values('{0}','{1}');"). \
+                format(city_name, bieming)
+            rows=self.pg_helper.writeDb(sql)
         return rows[0]['id']
 
     def get_xuexiao_id(self,city_id,xuexiao_name):
@@ -212,11 +265,6 @@ class Data_helper(object):
             format(city_id, xuexiao_name)
         rows = self.pg_helper.readDb(sql)
         return rows[0]['id']
-
-
-
-
-
 
     def get_huxing_id(self,huxing_name):
         if huxing_name in self.huxing_dict:
@@ -267,4 +315,9 @@ class Data_helper(object):
             return False
 
 if __name__ == '__main__':
-    pass
+    pg_helper = Pg_helper()
+    data_helper = Data_helper()
+    sql = "select * from house_xiaoqu"
+    rows = pg_helper.readDb(sql)
+    for item in rows:
+        data_helper.insert_xiaoqu_bieming('武汉',360,item['name'])
